@@ -1,0 +1,290 @@
+{
+  "test_timestamp": "2025-09-01T18:43:22.551622",
+  "total_queries_tested": 33,
+  "queries_with_results": 17,
+  "queries_without_results": 16,
+  "total_matches_found": 170,
+  "average_confidence": 100.0,
+  "average_quality": 100.0,
+  "high_quality_results": 170,
+  "medium_quality_results": 0,
+  "low_quality_results": 0,
+  "query_performance": [
+    {
+      "query": "energy efficiency",
+      "matches_found": 0,
+      "top_confidence": 0,
+      "top_quality": 0,
+      "top_category": "N/A",
+      "previously_failed": true
+    },
+    {
+      "query": "thermal bridge",
+      "matches_found": 0,
+      "top_confidence": 0,
+      "top_quality": 0,
+      "top_category": "N/A",
+      "previously_failed": true
+    },
+    {
+      "query": "thermal performance",
+      "matches_found": 0,
+      "top_confidence": 0,
+      "top_quality": 0,
+      "top_category": "N/A",
+      "previously_failed": true
+    },
+    {
+      "query": "cold bridging",
+      "matches_found": 0,
+      "top_confidence": 0,
+      "top_quality": 0,
+      "top_category": "N/A",
+      "previously_failed": true
+    },
+    {
+      "query": "vapour barrier",
+      "matches_found": 0,
+      "top_confidence": 0,
+      "top_quality": 0,
+      "top_category": "N/A",
+      "previously_failed": true
+    },
+    {
+      "query": "damp proofing",
+      "matches_found": 0,
+      "top_confidence": 0,
+      "top_quality": 0,
+      "top_category": "N/A",
+      "previously_failed": true
+    },
+    {
+      "query": "fire rating",
+      "matches_found": 0,
+      "top_confidence": 0,
+      "top_quality": 0,
+      "top_category": "N/A",
+      "previously_failed": true
+    },
+    {
+      "query": "rodent control",
+      "matches_found": 0,
+      "top_confidence": 0,
+      "top_quality": 0,
+      "top_category": "N/A",
+      "previously_failed": true
+    },
+    {
+      "query": "vermin proofing",
+      "matches_found": 0,
+      "top_confidence": 0,
+      "top_quality": 0,
+      "top_category": "N/A",
+      "previously_failed": true
+    },
+    {
+      "query": "product guarantee",
+      "matches_found": 0,
+      "top_confidence": 0,
+      "top_quality": 0,
+      "top_category": "N/A",
+      "previously_failed": true
+    },
+    {
+      "query": "long term performance",
+      "matches_found": 0,
+      "top_confidence": 0,
+      "top_quality": 0,
+      "top_category": "N/A",
+      "previously_failed": true
+    },
+    {
+      "query": "durability",
+      "matches_found": 0,
+      "top_confidence": 0,
+      "top_quality": 0,
+      "top_category": "N/A",
+      "previously_failed": true
+    },
+    {
+      "query": "polyurethane foam",
+      "matches_found": 0,
+      "top_confidence": 0,
+      "top_quality": 0,
+      "top_category": "N/A",
+      "previously_failed": true
+    },
+    {
+      "query": "open cell foam",
+      "matches_found": 0,
+      "top_confidence": 0,
+      "top_quality": 0,
+      "top_category": "N/A",
+      "previously_failed": true
+    },
+    {
+      "query": "curing time",
+      "matches_found": 0,
+      "top_confidence": 0,
+      "top_quality": 0,
+      "top_category": "N/A",
+      "previously_failed": true
+    },
+    {
+      "query": "thermal conductivity",
+      "matches_found": 0,
+      "top_confidence": 0,
+      "top_quality": 0,
+      "top_category": "N/A",
+      "previously_failed": true
+    },
+    {
+      "query": "spray foam mould",
+      "matches_found": 10,
+      "top_confidence": 100,
+      "top_quality": 100,
+      "top_category": "Moisture Resistance",
+      "previously_failed": false
+    },
+    {
+      "query": "R-value insulation",
+      "matches_found": 10,
+      "top_confidence": 100,
+      "top_quality": 100,
+      "top_category": "Moisture Resistance",
+      "previously_failed": false
+    },
+    {
+      "query": "fire safety",
+      "matches_found": 10,
+      "top_confidence": 100,
+      "top_quality": 100,
+      "top_category": "Moisture Resistance",
+      "previously_failed": false
+    },
+    {
+      "query": "soundproof acoustic",
+      "matches_found": 10,
+      "top_confidence": 100,
+      "top_quality": 100,
+      "top_category": "Moisture Resistance",
+      "previously_failed": false
+    },
+    {
+      "query": "Tasmania service",
+      "matches_found": 10,
+      "top_confidence": 100,
+      "top_quality": 100,
+      "top_category": "Moisture Resistance",
+      "previously_failed": false
+    },
+    {
+      "query": "cost price",
+      "matches_found": 10,
+      "top_confidence": 100,
+      "top_quality": 100,
+      "top_category": "Moisture Resistance",
+      "previously_failed": false
+    },
+    {
+      "query": "installation time",
+      "matches_found": 10,
+      "top_confidence": 100,
+      "top_quality": 100,
+      "top_category": "Moisture Resistance",
+      "previously_failed": false
+    },
+    {
+      "query": "condensation moisture",
+      "matches_found": 10,
+      "top_confidence": 100,
+      "top_quality": 100,
+      "top_category": "Moisture Resistance",
+      "previously_failed": false
+    },
+    {
+      "query": "building standards",
+      "matches_found": 10,
+      "top_confidence": 100,
+      "top_quality": 100,
+      "top_category": "Moisture Resistance",
+      "previously_failed": false
+    },
+    {
+      "query": "AS 1530 compliance",
+      "matches_found": 10,
+      "top_confidence": 100,
+      "top_quality": 100,
+      "top_category": "Moisture Resistance",
+      "previously_failed": false
+    },
+    {
+      "query": "moisture trap prevention",
+      "matches_found": 10,
+      "top_confidence": 100,
+      "top_quality": 100,
+      "top_category": "Moisture Resistance",
+      "previously_failed": false
+    },
+    {
+      "query": "Colorbond steel roof",
+      "matches_found": 10,
+      "top_confidence": 100,
+      "top_quality": 100,
+      "top_category": "Moisture Resistance",
+      "previously_failed": false
+    },
+    {
+      "query": "DIY installation kit",
+      "matches_found": 10,
+      "top_confidence": 100,
+      "top_quality": 100,
+      "top_category": "Moisture Resistance",
+      "previously_failed": false
+    },
+    {
+      "query": "thermal bridging solution",
+      "matches_found": 10,
+      "top_confidence": 100,
+      "top_quality": 100,
+      "top_category": "Moisture Resistance",
+      "previously_failed": false
+    },
+    {
+      "query": "closed cell benefits",
+      "matches_found": 10,
+      "top_confidence": 100,
+      "top_quality": 100,
+      "top_category": "Moisture Resistance",
+      "previously_failed": false
+    },
+    {
+      "query": "professional applicators",
+      "matches_found": 10,
+      "top_confidence": 100,
+      "top_quality": 100,
+      "top_category": "Moisture Resistance",
+      "previously_failed": false
+    },
+    {
+      "query": "substrate preparation",
+      "matches_found": 10,
+      "top_confidence": 100,
+      "top_quality": 100,
+      "top_category": "Moisture Resistance",
+      "previously_failed": false
+    }
+  ],
+  "quality_analysis": {
+    "overall_quality_score": 100.0,
+    "target_achieved": true,
+    "high_quality_percentage": 100.0,
+    "search_success_rate": 51.515151515151516,
+    "confidence_target_met": true
+  },
+  "improvement_summary": {
+    "zero_result_queries_fixed": 0,
+    "queries_reaching_70_quality": 170,
+    "overall_performance": "PASSED"
+  }
+}

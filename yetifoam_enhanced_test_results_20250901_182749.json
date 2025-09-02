@@ -1,0 +1,226 @@
+{
+  "test_timestamp": "2025-09-01T18:27:49.682635",
+  "test_version": "4.0 - Simple Enhanced Algorithm",
+  "algorithm_improvements": {
+    "multi_scorer_fusion": "token_set(40%) + partial(30%) + ratio(30%)",
+    "text_normalization": "comprehensive with abbreviation handling",
+    "threshold_optimization": "72% precision threshold",
+    "multi_field_search": "inferred_question + standardized_response + response_text + original_text",
+    "quality_weighting": "confidence(70%) + quality(30%) ranking"
+  },
+  "dataset_validation": {
+    "total_items": 1309,
+    "items_with_responses": 1309,
+    "unique_categories": [
+      "Service Areas",
+      "Installation & Maintenance",
+      "General Information",
+      "Pest Control",
+      "Pricing & Quotes",
+      "Acoustic Performance",
+      "Electrical Safety",
+      "Moisture Resistance",
+      "Standards & Compliance",
+      "Fire Safety & Health",
+      "Thermal Performance"
+    ],
+    "multi_field_coverage": 1309,
+    "status": "PASSED"
+  },
+  "enhanced_search_functionality": {
+    "queries_tested": 15,
+    "queries_with_results": 13,
+    "total_matches_found": 130,
+    "average_confidence": 90.57357160964581,
+    "high_confidence_queries": 13,
+    "medium_confidence_queries": 0,
+    "low_confidence_queries": 2,
+    "query_performance": [
+      {
+        "query": "spray foam mould",
+        "matches_found": 10,
+        "query_time_ms": 583.5168361663818,
+        "top_confidence": 86.57142857142857,
+        "confidence_level": "high",
+        "top_result_category": "Fire Safety & Health",
+        "top_result_quality": 18.0,
+        "fields_searched": 3
+      },
+      {
+        "query": "R-value insulation",
+        "matches_found": 10,
+        "query_time_ms": 593.6379432678223,
+        "top_confidence": 86.57142857142857,
+        "confidence_level": "high",
+        "top_result_category": "Fire Safety & Health",
+        "top_result_quality": 18.0,
+        "fields_searched": 3
+      },
+      {
+        "query": "fire safety",
+        "matches_found": 10,
+        "query_time_ms": 576.5528678894043,
+        "top_confidence": 86.57142857142857,
+        "confidence_level": "high",
+        "top_result_category": "Fire Safety & Health",
+        "top_result_quality": 18.0,
+        "fields_searched": 3
+      },
+      {
+        "query": "cost price",
+        "matches_found": 10,
+        "query_time_ms": 572.0579624176025,
+        "top_confidence": 86.57142857142857,
+        "confidence_level": "high",
+        "top_result_category": "Fire Safety & Health",
+        "top_result_quality": 18.0,
+        "fields_searched": 3
+      },
+      {
+        "query": "installation time",
+        "matches_found": 10,
+        "query_time_ms": 579.582929611206,
+        "top_confidence": 86.57142857142857,
+        "confidence_level": "high",
+        "top_result_category": "Fire Safety & Health",
+        "top_result_quality": 18.0,
+        "fields_searched": 3
+      },
+      {
+        "query": "condensation moisture",
+        "matches_found": 10,
+        "query_time_ms": 569.8387622833252,
+        "top_confidence": 100,
+        "confidence_level": "high",
+        "top_result_category": "General Information",
+        "top_result_quality": 5.0,
+        "fields_searched": 2
+      },
+      {
+        "query": "soundproof acoustic",
+        "matches_found": 10,
+        "query_time_ms": 585.0861072540283,
+        "top_confidence": 100,
+        "confidence_level": "high",
+        "top_result_category": "General Information",
+        "top_result_quality": 5.0,
+        "fields_searched": 2
+      },
+      {
+        "query": "energy efficiency",
+        "matches_found": 0,
+        "query_time_ms": 555.9689998626709,
+        "top_confidence": 0,
+        "confidence_level": "low"
+      },
+      {
+        "query": "building standards",
+        "matches_found": 10,
+        "query_time_ms": 566.9503211975098,
+        "top_confidence": 100,
+        "confidence_level": "high",
+        "top_result_category": "General Information",
+        "top_result_quality": 5.0,
+        "fields_searched": 2
+      },
+      {
+        "query": "Tasmania service",
+        "matches_found": 10,
+        "query_time_ms": 564.4550323486328,
+        "top_confidence": 100,
+        "confidence_level": "high",
+        "top_result_category": "General Information",
+        "top_result_quality": 5.0,
+        "fields_searched": 2
+      },
+      {
+        "query": "thermal bridge",
+        "matches_found": 0,
+        "query_time_ms": 556.776762008667,
+        "top_confidence": 0,
+        "confidence_level": "low"
+      },
+      {
+        "query": "DIY installation",
+        "matches_found": 10,
+        "query_time_ms": 665.4529571533203,
+        "top_confidence": 86.57142857142857,
+        "confidence_level": "high",
+        "top_result_category": "Fire Safety & Health",
+        "top_result_quality": 18.0,
+        "fields_searched": 3
+      },
+      {
+        "query": "moisture trap",
+        "matches_found": 10,
+        "query_time_ms": 585.9909057617188,
+        "top_confidence": 86.57142857142857,
+        "confidence_level": "high",
+        "top_result_category": "Fire Safety & Health",
+        "top_result_quality": 18.0,
+        "fields_searched": 3
+      },
+      {
+        "query": "AS standards compliance",
+        "matches_found": 10,
+        "query_time_ms": 564.277172088623,
+        "top_confidence": 100,
+        "confidence_level": "high",
+        "top_result_category": "Pricing & Quotes",
+        "top_result_quality": 7.000000000000001,
+        "fields_searched": 3
+      },
+      {
+        "query": "Colorbond steel roof",
+        "matches_found": 10,
+        "query_time_ms": 568.6070919036865,
+        "top_confidence": 86.57142857142857,
+        "confidence_level": "high",
+        "top_result_category": "Fire Safety & Health",
+        "top_result_quality": 18.0,
+        "fields_searched": 3
+      }
+    ],
+    "status": "PARTIAL"
+  },
+  "enhanced_response_quality": {
+    "total_analyzed": 1309,
+    "responses_with_keywords": 1147,
+    "responses_with_standards": 257,
+    "professional_responses": 538,
+    "comprehensive_responses": 1208,
+    "high_quality_responses": 25,
+    "medium_quality_responses": 76,
+    "low_quality_responses": 1208,
+    "quality_score": 22.06951871657754,
+    "average_quality_by_category": {
+      "Moisture Resistance": 32.36496350364963,
+      "Installation & Maintenance": 18.60730593607306,
+      "Fire Safety & Health": 28.550847457627118,
+      "Thermal Performance": 12.930555555555555,
+      "General Information": 8.58095238095238,
+      "Service Areas": 11.571428571428571,
+      "Acoustic Performance": 10.0,
+      "Pricing & Quotes": 13.712230215827338,
+      "Standards & Compliance": 13.933333333333334,
+      "Pest Control": 7.000000000000001,
+      "Electrical Safety": 11.5
+    },
+    "status": "FAILED"
+  },
+  "performance_comparison": {
+    "previous_quality_score": 51.2,
+    "current_quality_score": 22.06951871657754,
+    "improvement_percentage": -56.895471256684495,
+    "target_achieved": false,
+    "average_confidence": 90.57357160964581,
+    "confidence_target_achieved": true
+  },
+  "overall_performance": {
+    "total_test_time": 8.893850088119507,
+    "tests_passed": 1,
+    "tests_partial": 1,
+    "tests_failed": 1,
+    "overall_status": "PARTIAL"
+  }
+}
