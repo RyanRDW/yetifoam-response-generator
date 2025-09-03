@@ -59,8 +59,12 @@ from reportlab.lib.units import inch
 class YetifoamEnhancedResponseGenerator:
     def __init__(self):
         """Initialize the enhanced response generator with improved algorithms"""
-        self.dataset_path = "/Users/ryanimac/Yetifoam_Final_Package_v4/YETIFOAM_COVERAGE_OPTIMIZED_v5.json"
-        self.fallback_path = "/Users/ryanimac/YETIFOAM_STAGE5_FINALIZED_DATASET.json"
+        # Use absolute paths to ensure files are found regardless of working directory
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        self.clean_dataset_path = os.path.join(base_dir, "clean_responses_dataset.parquet")
+        self.clean_json_path = os.path.join(base_dir, "responses_dataset_clean.json")
+        self.dataset_path = os.path.join(base_dir, "YETIFOAM_COVERAGE_OPTIMIZED_v5.json")
+        self.fallback_path = os.path.join(base_dir, "YETIFOAM_STAGE5_ENHANCED_FINAL_DATASET.json")
         self.dataset = None
         self.load_dataset()
         
@@ -100,24 +104,47 @@ class YetifoamEnhancedResponseGenerator:
         }
         
     def load_dataset(self):
-        """Load the response dataset with enhanced error handling"""
+        """Load the response dataset with enhanced error handling - prioritize clean dataset"""
         dataset_loaded = False
         
-        # Try enhanced dataset first
-        if os.path.exists(self.dataset_path):
+        # Try clean parquet dataset first (best quality)
+        if os.path.exists(self.clean_dataset_path):
+            try:
+                import pandas as pd
+                df = pd.read_parquet(self.clean_dataset_path)
+                self.dataset = df.to_dict('records')
+                dataset_loaded = True
+                st.sidebar.success(f"✅ Clean dataset loaded: {len(self.dataset)} responses")
+            except Exception as e:
+                st.sidebar.error(f"Error loading clean parquet dataset: {e}")
+        
+        # Try clean JSON dataset as backup
+        if not dataset_loaded and os.path.exists(self.clean_json_path):
+            try:
+                with open(self.clean_json_path, 'r', encoding='utf-8') as file:
+                    self.dataset = json.load(file)
+                    dataset_loaded = True
+                    st.sidebar.success(f"✅ Clean JSON dataset loaded: {len(self.dataset)} responses")
+            except Exception as e:
+                st.sidebar.error(f"Error loading clean JSON dataset: {e}")
+        
+        # Fallback to corrupted dataset if clean ones aren't available
+        if not dataset_loaded and os.path.exists(self.dataset_path):
             try:
                 with open(self.dataset_path, 'r', encoding='utf-8') as file:
                     data = json.load(file)
                     if isinstance(data, dict) and 'items' in data:
                         self.dataset = data['items']
+                    elif isinstance(data, list):
+                        self.dataset = data
                     else:
                         self.dataset = data
                     dataset_loaded = True
-                    st.sidebar.success(f"✅ Enhanced dataset loaded: {len(self.dataset)} items")
+                    st.sidebar.warning(f"⚠️ Using corrupted dataset: {len(self.dataset)} items")
             except Exception as e:
-                st.sidebar.error(f"Error loading enhanced dataset: {e}")
+                st.sidebar.error(f"Error loading dataset: {e}")
         
-        # Fallback to original dataset
+        # Final fallback
         if not dataset_loaded and os.path.exists(self.fallback_path):
             try:
                 with open(self.fallback_path, 'r', encoding='utf-8') as file:
@@ -127,12 +154,12 @@ class YetifoamEnhancedResponseGenerator:
                     else:
                         self.dataset = data
                     dataset_loaded = True
-                    st.sidebar.warning(f"⚠️ Fallback dataset loaded: {len(self.dataset)} items")
+                    st.sidebar.warning(f"⚠️ Final fallback dataset loaded: {len(self.dataset)} items")
             except Exception as e:
                 st.sidebar.error(f"Error loading fallback dataset: {e}")
         
         if not dataset_loaded:
-            st.error("❌ Could not load response dataset")
+            st.error("❌ Could not load response dataset - Check sidebar for details")
             self.dataset = []
         
         return len(self.dataset) if self.dataset else 0
@@ -197,7 +224,11 @@ class YetifoamEnhancedResponseGenerator:
 
     def get_response_text(self, item: Dict[str, Any]) -> str:
         """Extract response text from item, handling multiple field names"""
-        # Try multiple possible fields in order of preference
+        # Check for new clean dataset structure first
+        if 'response' in item and item['response']:
+            return item['response']
+        
+        # Fallback to legacy dataset structure
         for field in ['standardized_response', 'response_text', 'original_text']:
             if field in item and item[field]:
                 return item[field]
@@ -390,10 +421,20 @@ class YetifoamEnhancedResponseGenerator:
         
         return normalized
 
-    def enhanced_fuzzy_search(self, query: str, text: str, category: str = "") -> Tuple[float, Dict[str, Any]]:
-        """Advanced fuzzy matching with dynamic multi-scorer fusion and contextual weighting"""
+    def enhanced_fuzzy_search(self, query: str, text: str, category: str = "", quality_score: float = 0.0) -> Tuple[float, Dict[str, Any]]:
+        """Advanced fuzzy matching with quality integration and corruption detection"""
         if not query or not text:
             return 0.0, {}
+        
+        # Check for remaining corruption patterns
+        corruption_patterns = [
+            r'Make sure to include|provide citations|Customer:|Document ID|Metadata',
+            r'format the response|include citations|Formatting instructions'
+        ]
+        
+        has_corruption = any(re.search(pattern, text, re.IGNORECASE) for pattern in corruption_patterns)
+        if has_corruption:
+            return 0.0, {'corruption_detected': True}
         
         # Apply advanced text normalization
         query_norm = self.normalize_text(query)
@@ -405,16 +446,13 @@ class YetifoamEnhancedResponseGenerator:
         
         # Adaptive weighting based on query length and type
         if query_length <= 2:  # Short queries (1-2 words)
-            # Prioritize exact matching for short technical terms
             weights = {'token_set': 0.45, 'partial': 0.25, 'token_sort': 0.20, 'ratio': 0.10}
         elif query_length <= 4:  # Medium queries (3-4 words)  
-            # Balanced approach for typical queries
             weights = {'token_set': 0.40, 'partial': 0.30, 'token_sort': 0.20, 'ratio': 0.10}
         else:  # Long queries (5+ words)
-            # Prioritize partial matching for long descriptive queries
             weights = {'token_set': 0.30, 'partial': 0.40, 'token_sort': 0.20, 'ratio': 0.10}
         
-        # Calculate multi-scorer fusion
+        # Calculate multi-scorer fusion with improved fuzzy matching
         token_set_score = fuzz.token_set_ratio(query_norm, text_norm)
         partial_score = fuzz.partial_ratio(query_norm, text_norm)
         token_sort_score = fuzz.token_sort_ratio(query_norm, text_norm)
@@ -428,32 +466,30 @@ class YetifoamEnhancedResponseGenerator:
             ratio_score * weights['ratio']
         )
         
-        # Enhanced exact match detection with >90% similarity fallback
+        # Enhanced exact match detection
         exact_bonus = 0
         query_words = set(query_norm.split())
         text_words = set(text_norm.split())
         
-        # High-precision exact matching
-        if any(word in text_norm for word in query_words if len(word) > 3):  # Longer words
+        if any(word in text_norm for word in query_words if len(word) > 3):
             word_match_ratio = len(query_words.intersection(text_words)) / len(query_words) if query_words else 0
-            if word_match_ratio >= 0.9:  # >90% exact word match
+            if word_match_ratio >= 0.9:
                 exact_bonus = 10
             elif word_match_ratio >= 0.7:
                 exact_bonus = 5
         
-        # Advanced category matching with 20%/10% boost
+        # Category matching bonus
         category_bonus = 0
         if category_norm:
-            # Exact category match (20% boost)
             category_words = set(category_norm.split())
             category_match_ratio = len(query_words.intersection(category_words)) / len(query_words) if query_words else 0
             
-            if category_match_ratio >= 0.6:  # Strong category alignment
-                category_bonus = 20  # 20% boost for exact matches
-            elif fuzz.partial_ratio(query_norm, category_norm) > 70:  # Partial category match
-                category_bonus = 10  # 10% boost for partial matches
+            if category_match_ratio >= 0.6:
+                category_bonus = 20
+            elif fuzz.partial_ratio(query_norm, category_norm) > 70:
+                category_bonus = 10
         
-        # Keyword density scoring (5-10% per keyword frequency)
+        # Keyword density scoring
         keyword_bonus = 0
         stop_words = {'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'a', 'an'}
         
@@ -461,11 +497,9 @@ class YetifoamEnhancedResponseGenerator:
         meaningful_text_words = {w for w in text_words if w not in stop_words and len(w) > 2}
         
         if meaningful_query_words:
-            # Calculate keyword frequency density
             common_words = meaningful_query_words.intersection(meaningful_text_words)
             keyword_density = len(common_words) / len(meaningful_query_words)
             
-            # Progressive keyword bonus (5-10% based on density)
             if keyword_density >= 0.8:
                 keyword_bonus = 10
             elif keyword_density >= 0.6:
@@ -475,16 +509,21 @@ class YetifoamEnhancedResponseGenerator:
             elif keyword_density >= 0.2:
                 keyword_bonus = 4
         
-        # Calculate final score with 75% minimum threshold consideration
-        raw_score = base_score + exact_bonus + category_bonus + keyword_bonus
+        # Quality score integration (boost high quality responses)
+        quality_bonus = 0
+        if quality_score > 0.7:  # High quality responses get boost
+            quality_bonus = min((quality_score - 0.7) * 20, 10)  # Up to 10% boost
         
-        # Penalize scores <60% by 20% as specified
-        if raw_score < 60:
-            final_score = raw_score * 0.8  # 20% penalty
+        # Calculate final score
+        raw_score = base_score + exact_bonus + category_bonus + keyword_bonus + quality_bonus
+        
+        # Apply relevance threshold (flexible for clean responses)
+        if raw_score < 50:
+            final_score = 0.0  # Filter out very low-relevance results
         else:
             final_score = min(raw_score, 100)
         
-        # Advanced scoring details for debugging
+        # Scoring details for debugging
         scoring_details = {
             'query_length': query_length,
             'weights_used': weights,
@@ -496,11 +535,11 @@ class YetifoamEnhancedResponseGenerator:
             'exact_bonus': exact_bonus,
             'category_bonus': category_bonus,
             'keyword_bonus': keyword_bonus,
+            'quality_bonus': quality_bonus,
             'raw_score': raw_score,
             'final_score': final_score,
-            'penalty_applied': raw_score < 60,
-            'query_normalized': query_norm[:50] + '...' if len(query_norm) > 50 else query_norm,
-            'text_normalized': text_norm[:100] + '...' if len(text_norm) > 100 else text_norm
+            'corruption_detected': has_corruption,
+            'quality_score_used': quality_score
         }
         
         return final_score, scoring_details
@@ -509,15 +548,23 @@ class YetifoamEnhancedResponseGenerator:
         """Extract prioritized searchable text with weighted field importance"""
         weighted_texts = []
         
-        # Prioritize response fields with specified weights:
-        # standardized_response 50%, inferred_question 30%, original_text 20%
-        priority_fields = [
-            ('standardized_response', 0.50),  # Primary response - highest weight
-            ('inferred_question', 0.30),      # Generated questions - medium weight  
-            ('original_text', 0.20),          # Source text - lowest weight
-            ('response_text', 0.15),          # Alternative response - backup
-            ('category', 0.05)                # Category context - minimal weight
-        ]
+        # Check if this is the new clean dataset structure
+        if 'response' in item and 'question' in item:
+            # New clean dataset structure - prioritize response and question
+            priority_fields = [
+                ('response', 0.60),              # Clean response - highest weight
+                ('question', 0.30),              # Question - medium weight  
+                ('category', 0.10),              # Category - lowest weight
+            ]
+        else:
+            # Legacy dataset structure
+            priority_fields = [
+                ('standardized_response', 0.50),  # Primary response - highest weight
+                ('inferred_question', 0.30),      # Generated questions - medium weight  
+                ('original_text', 0.20),          # Source text - lowest weight
+                ('response_text', 0.15),          # Alternative response - backup
+                ('category', 0.05)                # Category context - minimal weight
+            ]
         
         # Build weighted text combining based on field priority
         for field, weight in priority_fields:
@@ -532,8 +579,8 @@ class YetifoamEnhancedResponseGenerator:
         combined_text = ' '.join(weighted_texts)
         return combined_text
 
-    def search_responses(self, query: str, confidence_threshold: float = 0.75, max_results: int = 5) -> List[Dict[str, Any]]:
-        """Enhanced response search with multi-field search and improved thresholds"""
+    def search_responses(self, query: str, confidence_threshold: float = 0.70, max_results: int = 5) -> List[Dict[str, Any]]:
+        """Enhanced response search with clean dataset focus and quality filtering"""
         if not self.dataset or not query:
             return []
         
@@ -548,43 +595,61 @@ class YetifoamEnhancedResponseGenerator:
             
             category = item.get('category', '')
             
-            # Apply enhanced fuzzy search with improved algorithm
-            confidence, scoring_details = self.enhanced_fuzzy_search(query, searchable_text, category)
+            # Pre-calculate quality score for use in search
+            quality_score = self.calculate_quality_score(self.get_response_text(item), category) / 100.0
             
-            # Apply improved threshold (70-75% minimum as specified)
-            threshold_percentage = confidence_threshold * 100
-            if confidence >= threshold_percentage:
+            # Apply enhanced fuzzy search with quality integration
+            confidence, scoring_details = self.enhanced_fuzzy_search(query, searchable_text, category, quality_score)
+            
+            # Filter out low relevance results (50% minimum for clean data)
+            if confidence >= 50:  # Adjusted threshold for clean responses
                 result = item.copy()
                 result['confidence'] = confidence
                 result['match_query'] = query
                 result['scoring_details'] = scoring_details
-                result['quality_score'] = self.calculate_quality_score(self.get_response_text(item), category)
+                result['quality_score'] = quality_score * 100  # Convert back to percentage
                 
-                # Add searchable fields info for debugging
-                result['fields_searched'] = len([f for f in ['inferred_question', 'standardized_response', 'response_text', 'original_text'] if f in item and item[f]])
+                # Clean dataset specific fields
+                if 'question' in item:
+                    result['fields_searched'] = 'question + response + category'
+                else:
+                    result['fields_searched'] = 'legacy fields'
                 
                 results.append(result)
         
-        # Enhanced sorting: combine confidence and quality scores
+        # Enhanced sorting: prioritize relevance and quality
         def sort_key(x):
             confidence_score = x['confidence']
             quality_score = x.get('quality_score', 0)
-            # Weight confidence 70%, quality 30% for final ranking
-            combined_score = (confidence_score * 0.7) + (quality_score * 0.3)
+            # Weight confidence 80%, quality 20% for clean data
+            combined_score = (confidence_score * 0.8) + (quality_score * 0.2)
             return combined_score
         
         results.sort(key=sort_key, reverse=True)
         
-        # Fallback exact matching for high-confidence cases
-        if len(results) < max_results:
-            exact_matches = self.find_exact_matches(query, confidence_threshold)
-            for match in exact_matches:
-                if not any(r['source'] == match['source'] and 
-                          r.get('original_text', '') == match.get('original_text', '') 
-                          for r in results):
-                    results.append(match)
+        # Return results with no fallback needed for clean data
+        if not results:
+            # If no results found, try with lower threshold
+            for item in self.dataset:
+                searchable_text = self.get_searchable_text(item)
+                if not searchable_text:
+                    continue
+                
+                category = item.get('category', '')
+                quality_score = self.calculate_quality_score(self.get_response_text(item), category) / 100.0
+                confidence, scoring_details = self.enhanced_fuzzy_search(query, searchable_text, category, quality_score)
+                
+                if confidence >= 60:  # Lower fallback threshold
+                    result = item.copy()
+                    result['confidence'] = confidence
+                    result['match_query'] = query
+                    result['scoring_details'] = scoring_details
+                    result['quality_score'] = quality_score * 100
+                    result['fallback_match'] = True
+                    results.append(result)
+            
+            results.sort(key=sort_key, reverse=True)
         
-        # Return top results
         return results[:max_results]
     
     def find_exact_matches(self, query: str, confidence_threshold: float) -> List[Dict[str, Any]]:
@@ -738,9 +803,19 @@ class YetifoamEnhancedResponseGenerator:
             if not response_text:
                 response_text = 'No response text available'
             
-            # Clean text for PDF
+            # Clean text for PDF - escape HTML and handle special characters
+            import html
+            response_text = html.escape(response_text)  # Escape HTML entities
             response_text = response_text.replace('\n', '<br/>')
-            story.append(Paragraph(response_text[:1000] + "..." if len(response_text) > 1000 else response_text, styles['Normal']))
+            response_text = response_text.replace('\r', '')
+            # Remove any remaining problematic characters
+            response_text = ''.join(char for char in response_text if ord(char) < 65536)  # Remove high Unicode
+            
+            # Truncate if too long
+            if len(response_text) > 1000:
+                response_text = response_text[:1000] + "..."
+            
+            story.append(Paragraph(response_text, styles['Normal']))
             story.append(Spacer(1, 12))
             
             # Add page break every 3 responses
@@ -938,11 +1013,14 @@ def main():
                 query = st.text_area(
                     "Enter social media comment or query:",
                     height=100,
-                    placeholder="Example: Does spray foam insulation cause mould problems?"
+                    placeholder="Example: Does spray foam insulation cause mould problems?",
+                    key="search_query"
                 )
+                # Add helper text for Enter functionality
+                st.caption("💡 Tip: Click the search button below to generate responses")
             
             with col2:
-                confidence = st.slider("Minimum Confidence", 0.5, 1.0, 0.60, 0.02)
+                confidence = st.slider("Quality Threshold", 0.5, 1.0, 0.70, 0.05)
                 max_results = st.selectbox("Max Results", [3, 5, 10, 15], index=1)
                 show_scoring = st.checkbox("Show Scoring Details", value=False)
                 search_button = st.button("🔍 Generate Enhanced Response", type="primary")
@@ -967,11 +1045,7 @@ def main():
                     st.stop()
                 
                 if results:
-                    st.success(f"Found {len(results)} relevant responses (Enhanced Algorithm)")
-                    
-                    # Show average quality score
-                    avg_quality = sum(r.get('quality_score', 0) for r in results) / len(results)
-                    st.metric("Average Quality Score", f"{avg_quality:.1f}%")
+                    st.success(f"Found {len(results)} relevant responses")
                     
                     for i, result in enumerate(results, 1):
                         confidence_score = result.get('confidence', 0)
@@ -985,31 +1059,59 @@ def main():
                         else:
                             quality_color = "🔴"
                         
-                        with st.expander(f"{quality_color} Response {i} - Confidence: {confidence_score:.1f}% | Quality: {quality_score:.1f}%"):
-                            col_info1, col_info2 = st.columns(2)
-                            with col_info1:
-                                st.write("**Category:**", result.get('category', 'Unknown'))
-                            with col_info2:
-                                st.write("**Source:**", result.get('source', 'Unknown')[:50] + "..." if len(result.get('source', '')) > 50 else result.get('source', 'Unknown'))
+                        # Clean response display - just the answer
+                        st.markdown(f"### 📱 Response {i}")
+                        
+                        # Show clean response text only
+                        response_text = generator.get_response_text(result)
+                        
+                        # Clean the response for social media (remove document formatting)
+                        clean_response = response_text
+                        if clean_response:
+                            # Remove document structure markers
+                            import re
+                            clean_response = re.sub(r'^\d+\.\d*\s*', '', clean_response, flags=re.MULTILINE)
+                            clean_response = re.sub(r'^•\s*', '', clean_response, flags=re.MULTILINE)
+                            clean_response = re.sub(r'^\-\s*', '', clean_response, flags=re.MULTILINE)
                             
-                            # Show response text
-                            response_text = generator.get_response_text(result)
-                            st.write("**Response:**")
-                            st.write(response_text[:1000] + "..." if len(response_text) > 1000 else response_text)
+                            # Remove HTML comments
+                            clean_response = re.sub(r'<!--.*?-->', '', clean_response, flags=re.DOTALL)
+                            clean_response = re.sub(r'【.*?】', '', clean_response)
                             
-                            # Show scoring details if requested
-                            if show_scoring and 'scoring_details' in result:
-                                st.write("**Scoring Details:**")
+                            # Convert instructional language to direct
+                            clean_response = re.sub(r'Encourage commenters to', 'We recommend you', clean_response, flags=re.IGNORECASE)
+                            clean_response = re.sub(r'Advise commenters that', 'We suggest', clean_response, flags=re.IGNORECASE)
+                            clean_response = re.sub(r'Explain that', '', clean_response, flags=re.IGNORECASE)
+                            clean_response = re.sub(r'Clarify that', '', clean_response, flags=re.IGNORECASE)
+                            clean_response = re.sub(r'Reassure commenters that', 'Rest assured', clean_response, flags=re.IGNORECASE)
+                            
+                            # Clean up spacing
+                            clean_response = re.sub(r'\s+', ' ', clean_response)
+                            clean_response = clean_response.strip()
+                            
+                            # Add contact info if not present and response is substantial
+                            if len(clean_response) > 100 and 'contact' not in clean_response.lower() and 'yetifoam.com.au' not in clean_response.lower():
+                                clean_response += "\n\nFor more info or a free quote, visit https://yetifoam.com.au/contact/"
+                        
+                        with st.container():
+                            st.write(clean_response[:1500] + "..." if len(clean_response) > 1500 else clean_response)
+                        
+                        # Show category and confidence in small text below
+                        st.caption(f"Category: {result.get('category', 'Unknown')} | Match: {confidence_score:.0f}%")
+                        
+                        # Show scoring details if requested
+                        if show_scoring and 'scoring_details' in result:
+                            with st.expander("📊 View Scoring Details"):
                                 details = result['scoring_details']
                                 scoring_df = pd.DataFrame([{
-                                    'Metric': 'Primary Score (WRatio)',
-                                    'Value': f"{details.get('primary_score', 0):.1f}%"
+                                    'Metric': 'Token Set Score',
+                                    'Value': f"{details.get('token_set_score', 0):.1f}%"
                                 }, {
-                                    'Metric': 'Secondary Score (Partial)',
-                                    'Value': f"{details.get('secondary_score', 0):.1f}%"
+                                    'Metric': 'Partial Score',
+                                    'Value': f"{details.get('partial_score', 0):.1f}%"
                                 }, {
-                                    'Metric': 'Tertiary Score (Token Set)',
-                                    'Value': f"{details.get('tertiary_score', 0):.1f}%"
+                                    'Metric': 'Token Sort Score',
+                                    'Value': f"{details.get('token_sort_score', 0):.1f}%"
                                 }, {
                                     'Metric': 'Category Bonus',
                                     'Value': f"+{details.get('category_bonus', 0):.1f}%"
@@ -1018,40 +1120,32 @@ def main():
                                     'Value': f"+{details.get('keyword_bonus', 0):.1f}%"
                                 }])
                                 st.dataframe(scoring_df)
-                            
-                            # Copy button and exports
-                            col_exp1, col_exp2, col_exp3 = st.columns(3)
-                            with col_exp1:
-                                if st.button(f"📋 Copy {i}", key=f"copy_{i}"):
-                                    st.session_state[f'copied_{i}'] = response_text
-                                    generator.log_user_activity("copy_response", f"Response {i}")
-                                    st.success("Copied!")
-                            
-                            with col_exp2:
-                                json_data, filename = generator.export_to_json([result], f"response_{i}.json")
-                                if st.download_button(
-                                    f"💾 JSON {i}",
-                                    json_data,
-                                    filename,
-                                    "application/json",
-                                    key=f"json_{i}"
-                                ):
-                                    generator.log_user_activity("export_json", f"Single response {i}")
-                            
-                            with col_exp3:
-                                pdf_data = generator.export_to_pdf([result], f"Response {i}")
-                                if st.download_button(
-                                    f"📄 PDF {i}",
-                                    pdf_data,
-                                    f"response_{i}.pdf",
-                                    "application/pdf",
-                                    key=f"pdf_{i}"
-                                ):
-                                    generator.log_user_activity("export_pdf", f"Single response {i}")
+                        
+                        # Action buttons
+                        col_exp1, col_exp2 = st.columns(2)
+                        with col_exp1:
+                            if st.button(f"📋 Copy Response {i}", key=f"copy_{i}"):
+                                st.session_state[f'copied_{i}'] = response_text
+                                generator.log_user_activity("copy_response", f"Response {i}")
+                                st.success("Response copied to clipboard!")
+                        
+                        with col_exp2:
+                            json_data, filename = generator.export_to_json([result], f"response_{i}.json")
+                            if st.download_button(
+                                f"💾 Download JSON {i}",
+                                json_data,
+                                filename,
+                                "application/json",
+                                key=f"json_{i}"
+                            ):
+                                generator.log_user_activity("export_json", f"Single response {i}")
+                        
+                        # Add separator between responses
+                        st.markdown("---")
                     
                     # Bulk export for all results
                     st.subheader("📦 Export All Enhanced Results")
-                    col_bulk1, col_bulk2, col_bulk3, col_bulk4 = st.columns(4)
+                    col_bulk1, col_bulk2, col_bulk3 = st.columns(3)
                     
                     with col_bulk1:
                         json_data, filename = generator.export_to_json(results, "enhanced_responses.json")
@@ -1067,11 +1161,6 @@ def main():
                         txt_data = generator.export_to_txt(results)
                         if st.download_button("📝 All as TXT", txt_data, "enhanced_responses.txt", "text/plain"):
                             generator.log_user_activity("export_bulk_txt", f"{len(results)} responses")
-                    
-                    with col_bulk4:
-                        pdf_data = generator.export_to_pdf(results, "Enhanced Search Results")
-                        if st.download_button("📄 All as PDF", pdf_data, "enhanced_responses.pdf", "application/pdf"):
-                            generator.log_user_activity("export_bulk_pdf", f"{len(results)} responses")
                 
                 else:
                     st.warning("No relevant responses found. Try lowering the confidence threshold or using different keywords.")
@@ -1138,7 +1227,7 @@ def main():
                         
                         # Enhanced bulk export options
                         st.subheader("📦 Export Enhanced Bulk Results")
-                        col_export1, col_export2, col_export3, col_export4 = st.columns(4)
+                        col_export1, col_export2, col_export3 = st.columns(3)
                         
                         with col_export1:
                             json_data, filename = generator.export_to_json(all_results, "bulk_enhanced_responses.json")
@@ -1151,10 +1240,6 @@ def main():
                         with col_export3:
                             txt_data = generator.export_to_txt(all_results)
                             st.download_button("📝 Bulk TXT", txt_data, "bulk_enhanced_responses.txt", "text/plain")
-                        
-                        with col_export4:
-                            pdf_data = generator.export_to_pdf(all_results, "Enhanced Bulk Query Results")
-                            st.download_button("📄 Bulk PDF", pdf_data, "bulk_enhanced_responses.pdf", "application/pdf")
         
         with tab3:
             st.header("📊 Quality Analytics Dashboard")
