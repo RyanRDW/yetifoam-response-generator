@@ -56,8 +56,8 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 
-# Import our enhanced semantic matcher
-from enhanced_matcher import SemanticMatcher
+# Import complete semantic matcher for ALL responses
+from complete_semantic_matcher import CompleteMatcher
 
 class YetifoamEnhancedResponseGenerator:
     def __init__(self):
@@ -66,7 +66,7 @@ class YetifoamEnhancedResponseGenerator:
         base_dir = os.path.dirname(os.path.abspath(__file__))
         self.unified_dataset_path = os.path.join(base_dir, "unified_responses.parquet")
         self.dataset = None
-        self.semantic_matcher = None
+        self.complete_matcher = None
         self.load_dataset()
         
         # Enhanced authentication settings with secure password handling
@@ -105,16 +105,16 @@ class YetifoamEnhancedResponseGenerator:
         }
         
     def load_dataset(self):
-        """Load unified dataset and initialize semantic matcher"""
+        """Load complete unified dataset and initialize matcher"""
         try:
             if os.path.exists(self.unified_dataset_path):
                 df = pd.read_parquet(self.unified_dataset_path)
                 self.dataset = df.to_dict('records')
-                self.semantic_matcher = SemanticMatcher(self.unified_dataset_path)
-                st.sidebar.success(f"✅ Unified dataset loaded: {len(self.dataset)} responses")
+                self.complete_matcher = CompleteMatcher(self.unified_dataset_path)
+                st.sidebar.success(f"✅ Complete dataset loaded: {len(self.dataset)} responses")
                 return len(self.dataset)
             else:
-                st.sidebar.error("❌ Unified dataset not found - run create_unified_dataset.py first")
+                st.sidebar.error("❌ Complete unified dataset not found")
                 self.dataset = []
                 return 0
         except Exception as e:
@@ -538,41 +538,46 @@ class YetifoamEnhancedResponseGenerator:
         return combined_text
 
     def search_responses(self, query: str, confidence_threshold: float = 0.70, max_results: int = 5) -> List[Dict[str, Any]]:
-        """Semantic search using enhanced matcher - always returns results"""
-        if not query or not self.semantic_matcher:
+        """Search using complete matcher - evaluates ALL responses, never fails"""
+        if not query or not self.complete_matcher:
             return []
         
-        # Use semantic matcher to find best matches
-        matches = self.semantic_matcher.find_best_matches(query, min_score=30.0, max_results=max_results)
+        # Get best match from ALL responses
+        best_result = self.complete_matcher.find_best_match_from_all(query)
         
-        # Convert to expected format for UI
+        # Convert to expected UI format
         results = []
-        for match in matches:
+        if best_result['success']:
             result = {
-                'confidence': match.get('similarity_score', 60.0),
+                'confidence': best_result['confidence'],
                 'match_query': query,
-                'category': match.get('category', 'General'),
-                'response': match.get('response', ''),
-                'query': match.get('query', ''),
-                'quality_score': 85.0,  # High quality for unified dataset
-                'match_type': match.get('match_confidence', 'good'),
-                'source': match.get('source', 'unified')
+                'category': best_result['category'],
+                'response': best_result['response'],
+                'query': query,  # User's original query
+                'quality_score': 85.0,  # High quality - from complete dataset
+                'match_type': best_result['match_type'],
+                'source': best_result.get('source_info', 'complete_dataset'),
+                'adaptation': best_result.get('adaptation', 'none')
             }
             results.append(result)
         
-        # If no matches, get fallback response
-        if not results:
-            fallback_result = self.semantic_matcher.find_best_response(query)
-            if fallback_result['success']:
-                results.append({
-                    'confidence': fallback_result['confidence'],
-                    'match_query': query,
-                    'category': fallback_result['category'],
-                    'response': fallback_result['response'],
-                    'quality_score': 80.0,
-                    'match_type': fallback_result['match_type'],
-                    'source': 'fallback'
-                })
+        # Get additional matches if requested
+        if max_results > 1:
+            additional_matches = self.complete_matcher.get_multiple_matches(query, max_results)
+            for i, match in enumerate(additional_matches[1:], 2):  # Skip first (already added)
+                if match['score'] >= 40:  # Only include reasonable matches
+                    result = {
+                        'confidence': match['score'],
+                        'match_query': query,
+                        'category': match['category'],
+                        'response': match['response'],
+                        'query': query,
+                        'quality_score': 80.0,
+                        'match_type': 'additional',
+                        'source': f"{match['source']}:{match['original_index']}",
+                        'adaptation': 'none'
+                    }
+                    results.append(result)
         
         return results
     
