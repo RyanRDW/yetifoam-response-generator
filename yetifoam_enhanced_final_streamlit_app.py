@@ -56,16 +56,17 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 
+# Import our enhanced semantic matcher
+from enhanced_matcher import SemanticMatcher
+
 class YetifoamEnhancedResponseGenerator:
     def __init__(self):
-        """Initialize the enhanced response generator with improved algorithms"""
+        """Initialize the enhanced response generator with semantic matching"""
         # Use absolute paths to ensure files are found regardless of working directory
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        self.clean_dataset_path = os.path.join(base_dir, "clean_responses_dataset.parquet")
-        self.clean_json_path = os.path.join(base_dir, "responses_dataset_clean.json")
-        self.dataset_path = os.path.join(base_dir, "YETIFOAM_COVERAGE_OPTIMIZED_v5.json")
-        self.fallback_path = os.path.join(base_dir, "YETIFOAM_STAGE5_ENHANCED_FINAL_DATASET.json")
+        self.unified_dataset_path = os.path.join(base_dir, "unified_responses.parquet")
         self.dataset = None
+        self.semantic_matcher = None
         self.load_dataset()
         
         # Enhanced authentication settings with secure password handling
@@ -104,82 +105,22 @@ class YetifoamEnhancedResponseGenerator:
         }
         
     def load_dataset(self):
-        """Load the response dataset with enhanced error handling - prioritize clean dataset"""
-        dataset_loaded = False
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        
-        # Debug: Show available files
-        available_files = [f for f in os.listdir(base_dir) if f.endswith(('.parquet', '.json'))]
-        st.sidebar.info(f"📁 Available files: {available_files}")
-        
-        # Try clean parquet dataset first (best quality)
-        st.sidebar.info(f"🔍 Trying: {self.clean_dataset_path}")
-        if os.path.exists(self.clean_dataset_path):
-            try:
-                import pandas as pd
-                import pyarrow  # Ensure pyarrow is available
-                df = pd.read_parquet(self.clean_dataset_path)
+        """Load unified dataset and initialize semantic matcher"""
+        try:
+            if os.path.exists(self.unified_dataset_path):
+                df = pd.read_parquet(self.unified_dataset_path)
                 self.dataset = df.to_dict('records')
-                dataset_loaded = True
-                st.sidebar.success(f"✅ Clean parquet loaded: {len(self.dataset)} responses")
-            except ImportError as e:
-                st.sidebar.error(f"Missing dependency for parquet: {e}")
-            except Exception as e:
-                st.sidebar.error(f"Parquet error: {e}")
-        else:
-            st.sidebar.warning(f"❌ Parquet file not found")
-        
-        # Try clean JSON dataset as backup
-        if not dataset_loaded:
-            st.sidebar.info(f"🔍 Trying: {self.clean_json_path}")
-            if os.path.exists(self.clean_json_path):
-                try:
-                    with open(self.clean_json_path, 'r', encoding='utf-8') as file:
-                        self.dataset = json.load(file)
-                        dataset_loaded = True
-                        st.sidebar.success(f"✅ Clean JSON loaded: {len(self.dataset)} responses")
-                except Exception as e:
-                    st.sidebar.error(f"JSON error: {e}")
+                self.semantic_matcher = SemanticMatcher(self.unified_dataset_path)
+                st.sidebar.success(f"✅ Unified dataset loaded: {len(self.dataset)} responses")
+                return len(self.dataset)
             else:
-                st.sidebar.warning(f"❌ JSON file not found")
-        
-        # Fallback to legacy datasets
-        if not dataset_loaded:
-            st.sidebar.info(f"🔍 Trying legacy: {self.dataset_path}")
-            if os.path.exists(self.dataset_path):
-                try:
-                    with open(self.dataset_path, 'r', encoding='utf-8') as file:
-                        data = json.load(file)
-                        if isinstance(data, dict) and 'items' in data:
-                            self.dataset = data['items']
-                        elif isinstance(data, list):
-                            self.dataset = data
-                        else:
-                            self.dataset = data
-                        dataset_loaded = True
-                        st.sidebar.warning(f"⚠️ Legacy dataset loaded: {len(self.dataset)} items")
-                except Exception as e:
-                    st.sidebar.error(f"Legacy error: {e}")
-        
-        # Final fallback
-        if not dataset_loaded and os.path.exists(self.fallback_path):
-            try:
-                with open(self.fallback_path, 'r', encoding='utf-8') as file:
-                    data = json.load(file)
-                    if isinstance(data, dict) and 'items' in data:
-                        self.dataset = data['items']
-                    else:
-                        self.dataset = data
-                    dataset_loaded = True
-                    st.sidebar.warning(f"⚠️ Final fallback loaded: {len(self.dataset)} items")
-            except Exception as e:
-                st.sidebar.error(f"Fallback error: {e}")
-        
-        if not dataset_loaded:
-            st.error("❌ Could not load any dataset - Check sidebar for debug info")
+                st.sidebar.error("❌ Unified dataset not found - run create_unified_dataset.py first")
+                self.dataset = []
+                return 0
+        except Exception as e:
+            st.sidebar.error(f"Dataset loading error: {e}")
             self.dataset = []
-        
-        return len(self.dataset) if self.dataset else 0
+            return 0
         
     def _load_secure_credentials(self) -> Dict[str, str]:
         """Load credentials securely from environment or Streamlit secrets"""
@@ -597,77 +538,43 @@ class YetifoamEnhancedResponseGenerator:
         return combined_text
 
     def search_responses(self, query: str, confidence_threshold: float = 0.70, max_results: int = 5) -> List[Dict[str, Any]]:
-        """Enhanced response search with clean dataset focus and quality filtering"""
-        if not self.dataset or not query:
+        """Semantic search using enhanced matcher - always returns results"""
+        if not query or not self.semantic_matcher:
             return []
         
+        # Use semantic matcher to find best matches
+        matches = self.semantic_matcher.find_best_matches(query, min_score=30.0, max_results=max_results)
+        
+        # Convert to expected format for UI
         results = []
+        for match in matches:
+            result = {
+                'confidence': match.get('similarity_score', 60.0),
+                'match_query': query,
+                'category': match.get('category', 'General'),
+                'response': match.get('response', ''),
+                'query': match.get('query', ''),
+                'quality_score': 85.0,  # High quality for unified dataset
+                'match_type': match.get('match_confidence', 'good'),
+                'source': match.get('source', 'unified')
+            }
+            results.append(result)
         
-        # Search through all items with enhanced matching
-        for item in self.dataset:
-            # Get comprehensive searchable text from multiple fields
-            searchable_text = self.get_searchable_text(item)
-            if not searchable_text:
-                continue
-            
-            category = item.get('category', '')
-            
-            # Pre-calculate quality score for use in search
-            quality_score = self.calculate_quality_score(self.get_response_text(item), category) / 100.0
-            
-            # Apply enhanced fuzzy search with quality integration
-            confidence, scoring_details = self.enhanced_fuzzy_search(query, searchable_text, category, quality_score)
-            
-            # Filter out low relevance results (50% minimum for clean data)
-            if confidence >= 50:  # Adjusted threshold for clean responses
-                result = item.copy()
-                result['confidence'] = confidence
-                result['match_query'] = query
-                result['scoring_details'] = scoring_details
-                result['quality_score'] = quality_score * 100  # Convert back to percentage
-                
-                # Clean dataset specific fields
-                if 'question' in item:
-                    result['fields_searched'] = 'question + response + category'
-                else:
-                    result['fields_searched'] = 'legacy fields'
-                
-                results.append(result)
-        
-        # Enhanced sorting: prioritize relevance and quality
-        def sort_key(x):
-            confidence_score = x['confidence']
-            quality_score = x.get('quality_score', 0)
-            # Weight confidence 80%, quality 20% for clean data
-            combined_score = (confidence_score * 0.8) + (quality_score * 0.2)
-            return combined_score
-        
-        results.sort(key=sort_key, reverse=True)
-        
-        # Return results with no fallback needed for clean data
+        # If no matches, get fallback response
         if not results:
-            # If no results found, try with lower threshold
-            for item in self.dataset:
-                searchable_text = self.get_searchable_text(item)
-                if not searchable_text:
-                    continue
-                
-                category = item.get('category', '')
-                quality_score = self.calculate_quality_score(self.get_response_text(item), category) / 100.0
-                confidence, scoring_details = self.enhanced_fuzzy_search(query, searchable_text, category, quality_score)
-                
-                if confidence >= 60:  # Lower fallback threshold
-                    result = item.copy()
-                    result['confidence'] = confidence
-                    result['match_query'] = query
-                    result['scoring_details'] = scoring_details
-                    result['quality_score'] = quality_score * 100
-                    result['fallback_match'] = True
-                    results.append(result)
-            
-            results.sort(key=sort_key, reverse=True)
+            fallback_result = self.semantic_matcher.find_best_response(query)
+            if fallback_result['success']:
+                results.append({
+                    'confidence': fallback_result['confidence'],
+                    'match_query': query,
+                    'category': fallback_result['category'],
+                    'response': fallback_result['response'],
+                    'quality_score': 80.0,
+                    'match_type': fallback_result['match_type'],
+                    'source': 'fallback'
+                })
         
-        return results[:max_results]
+        return results
     
     def find_exact_matches(self, query: str, confidence_threshold: float) -> List[Dict[str, Any]]:
         """Fallback exact matching for high-confidence cases"""
