@@ -106,43 +106,60 @@ class YetifoamEnhancedResponseGenerator:
     def load_dataset(self):
         """Load the response dataset with enhanced error handling - prioritize clean dataset"""
         dataset_loaded = False
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # Debug: Show available files
+        available_files = [f for f in os.listdir(base_dir) if f.endswith(('.parquet', '.json'))]
+        st.sidebar.info(f"📁 Available files: {available_files}")
         
         # Try clean parquet dataset first (best quality)
+        st.sidebar.info(f"🔍 Trying: {self.clean_dataset_path}")
         if os.path.exists(self.clean_dataset_path):
             try:
                 import pandas as pd
+                import pyarrow  # Ensure pyarrow is available
                 df = pd.read_parquet(self.clean_dataset_path)
                 self.dataset = df.to_dict('records')
                 dataset_loaded = True
-                st.sidebar.success(f"✅ Clean dataset loaded: {len(self.dataset)} responses")
+                st.sidebar.success(f"✅ Clean parquet loaded: {len(self.dataset)} responses")
+            except ImportError as e:
+                st.sidebar.error(f"Missing dependency for parquet: {e}")
             except Exception as e:
-                st.sidebar.error(f"Error loading clean parquet dataset: {e}")
+                st.sidebar.error(f"Parquet error: {e}")
+        else:
+            st.sidebar.warning(f"❌ Parquet file not found")
         
         # Try clean JSON dataset as backup
-        if not dataset_loaded and os.path.exists(self.clean_json_path):
-            try:
-                with open(self.clean_json_path, 'r', encoding='utf-8') as file:
-                    self.dataset = json.load(file)
-                    dataset_loaded = True
-                    st.sidebar.success(f"✅ Clean JSON dataset loaded: {len(self.dataset)} responses")
-            except Exception as e:
-                st.sidebar.error(f"Error loading clean JSON dataset: {e}")
+        if not dataset_loaded:
+            st.sidebar.info(f"🔍 Trying: {self.clean_json_path}")
+            if os.path.exists(self.clean_json_path):
+                try:
+                    with open(self.clean_json_path, 'r', encoding='utf-8') as file:
+                        self.dataset = json.load(file)
+                        dataset_loaded = True
+                        st.sidebar.success(f"✅ Clean JSON loaded: {len(self.dataset)} responses")
+                except Exception as e:
+                    st.sidebar.error(f"JSON error: {e}")
+            else:
+                st.sidebar.warning(f"❌ JSON file not found")
         
-        # Fallback to corrupted dataset if clean ones aren't available
-        if not dataset_loaded and os.path.exists(self.dataset_path):
-            try:
-                with open(self.dataset_path, 'r', encoding='utf-8') as file:
-                    data = json.load(file)
-                    if isinstance(data, dict) and 'items' in data:
-                        self.dataset = data['items']
-                    elif isinstance(data, list):
-                        self.dataset = data
-                    else:
-                        self.dataset = data
-                    dataset_loaded = True
-                    st.sidebar.warning(f"⚠️ Using corrupted dataset: {len(self.dataset)} items")
-            except Exception as e:
-                st.sidebar.error(f"Error loading dataset: {e}")
+        # Fallback to legacy datasets
+        if not dataset_loaded:
+            st.sidebar.info(f"🔍 Trying legacy: {self.dataset_path}")
+            if os.path.exists(self.dataset_path):
+                try:
+                    with open(self.dataset_path, 'r', encoding='utf-8') as file:
+                        data = json.load(file)
+                        if isinstance(data, dict) and 'items' in data:
+                            self.dataset = data['items']
+                        elif isinstance(data, list):
+                            self.dataset = data
+                        else:
+                            self.dataset = data
+                        dataset_loaded = True
+                        st.sidebar.warning(f"⚠️ Legacy dataset loaded: {len(self.dataset)} items")
+                except Exception as e:
+                    st.sidebar.error(f"Legacy error: {e}")
         
         # Final fallback
         if not dataset_loaded and os.path.exists(self.fallback_path):
@@ -154,12 +171,12 @@ class YetifoamEnhancedResponseGenerator:
                     else:
                         self.dataset = data
                     dataset_loaded = True
-                    st.sidebar.warning(f"⚠️ Final fallback dataset loaded: {len(self.dataset)} items")
+                    st.sidebar.warning(f"⚠️ Final fallback loaded: {len(self.dataset)} items")
             except Exception as e:
-                st.sidebar.error(f"Error loading fallback dataset: {e}")
+                st.sidebar.error(f"Fallback error: {e}")
         
         if not dataset_loaded:
-            st.error("❌ Could not load response dataset - Check sidebar for details")
+            st.error("❌ Could not load any dataset - Check sidebar for debug info")
             self.dataset = []
         
         return len(self.dataset) if self.dataset else 0
