@@ -168,11 +168,12 @@ class AIEnhancedResponseGenerator:
         
         return context
     
-    def generate_ai_responses(self, query: str, num_responses: int = 2) -> List[Dict]:
+    def generate_ai_responses(self, query: str, tone: str = "Professional", num_responses: int = 2) -> List[Dict]:
         """Generate responses using Claude API with reasoning"""
         if not self.anthropic_client:
             return [{
                 'reasoning': "API key required for advanced reasoning",
+                'tone': tone,
                 'category': 'API Error',
                 'subcategory': 'Missing API Key',
                 'social_media_response': "API key required for advanced reasoning—set ANTHROPIC_API_KEY in environment variables or .streamlit/secrets.toml under [anthropic] api_key = 'your_key_here'"
@@ -181,8 +182,18 @@ class AIEnhancedResponseGenerator:
         # Create dataset context
         dataset_context = self.create_dataset_context(query)
         
-        # Enhanced system prompt for Claude with improved safety focus
-        system_prompt = """You are an expert YetiFoam insulation assistant specializing in safety and product information.
+        # Enhanced system prompt for Claude with tone adaptation
+        tone_definitions = {
+            "Professional": "Calm, polite, reassuring, brand-aligned using 'we' and 'our'. Maintain professional credibility.",
+            "Technical": "Focus on specs, standards, data; use precise terminology and technical details from dataset.",
+            "Informative": "Straightforward facts, neutral delivery, quick to read. Present information clearly.",
+            "Educational": "Explain concepts simply, break down why/how. Help users understand the science.",
+            "Direct": "Blunt, concise, no fluff; get straight to the point with essential facts.",
+            "Happy/Enthusiastic": "Upbeat, positive energy, add emojis if suitable for social media. Show excitement about the product.",
+            "Reassuring": "Empathetic, calming for concerns or FUD comments. Address fears with compassion."
+        }
+        
+        system_prompt = f"""You are an expert YetiFoam insulation assistant specializing in safety and product information.
 
 CRITICAL INSTRUCTIONS FOR TOXICITY/SAFETY QUERIES:
 When users ask "is it toxic?", "is it safe?", or similar health/safety questions:
@@ -193,31 +204,34 @@ When users ask "is it toxic?", "is it safe?", or similar health/safety questions
    - Does NOT release fibres or particles during or after installation  
    - Chemically compatible with electrical systems and PVC cables
    - Meets Australian fire safety standards
+   - Closed-cell structure (differentiates from open-cell alternatives)
 
-2. FOCUS ON MATERIAL SAFETY, not fire safety or installation topics
-3. USE REASSURING, FACTUAL LANGUAGE that addresses toxicity concerns directly
-4. COMPARE to everyday safe products people know (fridges, mattresses, furniture)
+2. FOCUS ON MATERIAL SAFETY, not fire safety or installation topics for toxicity queries
+3. Always differentiate YetiFoam as CLOSED-CELL polyurethane when relevant
+4. Include appropriate CTA like https://yetifoam.com.au/contact/ where suitable
 
-For toxicity questions, your responses must emphasize YetiFoam's safety through:
-- Formaldehyde-free composition
-- Safe polyurethane material (same as household items)
-- No harmful particle or fibre release
+TONE ADAPTATION:
+You must adapt ALL responses to the "{tone}" tone style: {tone_definitions.get(tone, "Professional tone")}
 
-Analyze the query intent and generate relevant social media responses that directly address safety concerns using the dataset facts provided.
+For toxicity questions, maintain safety focus but adapt the communication style to the selected tone.
+Generate {num_responses} varied responses in the selected tone, each with slightly different phrasing for diversity.
+
+RESPONSE LENGTH: Aim for social media suitability but allow up to 500 characters if tone requires (e.g., Educational/Technical may need more explanation).
+
+Analyze the query intent, classify it (FUD/legitimate/positive), and generate tone-appropriate responses using dataset facts.
 
 Return ONLY valid JSON in this exact format:
-{
-  "reasoning": "Brief analysis of the safety query and key facts to highlight",
+{{
+  "reasoning": "Brief analysis of query type, key facts from dataset, how responses adapt to {tone} tone",
   "responses": [
-    {
-      "category": "Safety",
-      "subcategory": "Material Safety",
-      "social_media_response": "Direct safety answer + key facts + yetifoam.com.au/contact. Under 280 chars."
-    }
+    {{
+      "tone": "{tone}",
+      "social_media_response": "Response adapted to {tone} style using dataset facts"
+    }}
   ]
-}
+}}
 
-Ensure all responses are factual, reassuring, and end with the contact URL."""
+Ensure all responses use factual dataset information, maintain the selected tone, and include CTA where appropriate."""
 
         # User prompt with query and dataset context
         user_prompt = f"""Query: "{query}"
@@ -263,24 +277,26 @@ Please analyze this query and generate {num_responses} relevant social media res
                 response_list = parsed_response.get('responses', [])
                 if not response_list:
                     # Fallback if no responses array found
-                    return self.generate_fallback_response(query)
+                    return self.generate_fallback_response(query, tone)
                 
                 for i, resp in enumerate(response_list[:num_responses]):
                     social_response = resp.get('social_media_response', 'No response generated')
+                    response_tone = resp.get('tone', tone)
                     
-                    # Ensure response ends with contact info if not present
-                    if 'yetifoam.com.au/contact' not in social_response.lower():
-                        if len(social_response) < 240:  # Leave room for contact info
-                            social_response += " Contact us at yetifoam.com.au/contact for more info."
+                    # Ensure response ends with contact info if not present (but allow more flexibility for longer responses)
+                    if 'yetifoam.com.au/contact' not in social_response.lower() and 'contact' not in social_response.lower():
+                        if len(social_response) < 450:  # Increased limit for tone-based responses
+                            social_response += " More info at yetifoam.com.au/contact"
                     
                     responses.append({
                         'reasoning': reasoning if i == 0 else '',  # Only show reasoning on first response
-                        'category': resp.get('category', 'Safety Response'),
-                        'subcategory': resp.get('subcategory', f'AI Response {i+1}'),
+                        'tone': response_tone,
+                        'category': resp.get('category', 'AI Response'),
+                        'subcategory': resp.get('subcategory', f'{tone} Response {i+1}'),
                         'social_media_response': social_response
                     })
                 
-                return responses if responses else self.generate_fallback_response(query)
+                return responses if responses else self.generate_fallback_response(query, tone)
                 
             except (json.JSONDecodeError, KeyError, TypeError) as e:
                 # Enhanced fallback with better error handling
@@ -296,33 +312,36 @@ Please analyze this query and generate {num_responses} relevant social media res
                     
                     return [{
                         'reasoning': 'Response extracted from AI (JSON parsing failed but safety content detected)',
+                        'tone': tone,
                         'category': 'Safety Information',
                         'subcategory': 'Material Safety',
                         'social_media_response': clean_text + " More info at yetifoam.com.au/contact"
                     }]
                 else:
-                    return self.generate_fallback_response(query)
+                    return self.generate_fallback_response(query, tone)
                 
         except Exception as e:
             st.error(f"Error calling Claude API: {e}")
-            return self.generate_fallback_response(query)
+            return self.generate_fallback_response(query, tone)
     
-    def generate_fallback_response(self, query: str) -> List[Dict]:
+    def generate_fallback_response(self, query: str, tone: str = "Professional") -> List[Dict]:
         """Generate fallback response when API fails"""
         query_lower = query.lower()
         
         # Enhanced fallback for safety/toxicity questions
         if any(word in query_lower for word in ['toxic', 'safe', 'safety', 'health', 'harmful']):
             return [{
-                'reasoning': 'Fallback safety response - YetiFoam is formaldehyde-free polyurethane (same material used in fridges and furniture)',
+                'reasoning': 'Fallback safety response - YetiFoam is formaldehyde-free closed-cell polyurethane (same material used in fridges and furniture)',
+                'tone': tone,
                 'category': 'Safety Information',
                 'subcategory': 'Material Safety',
-                'social_media_response': "YetiFoam is safe! It's formaldehyde-free polyurethane - the same material used in fridges, mattresses & furniture. No harmful fibres or particles. Contact yetifoam.com.au/contact for detailed safety info."
+                'social_media_response': "YetiFoam is safe! It's formaldehyde-free closed-cell polyurethane - the same material used in fridges, mattresses & furniture. No harmful fibres or particles. Contact yetifoam.com.au/contact for detailed safety info."
             }]
         
         # General fallback
         return [{
             'reasoning': 'Fallback response due to API error',
+            'tone': tone,
             'category': 'General Information',
             'subcategory': 'Contact Support',
             'social_media_response': f"Thanks for your question about '{query}'. For detailed information about YetiFoam products, please contact our expert team at yetifoam.com.au/contact who can provide specific guidance tailored to your needs."
@@ -347,8 +366,8 @@ def main():
         st.warning("⚠️ Claude API key required - set ANTHROPIC_API_KEY environment variable")
         st.info("💡 Set your API key in environment variables or add to .streamlit/secrets.toml:\n```\n[anthropic]\napi_key = 'your_api_key_here'\n```")
     
-    # Input section
-    col1, col2 = st.columns([3, 1])
+    # Input section with tone selection
+    col1, col2, col3 = st.columns([2, 1, 1])
     
     with col1:
         query = st.text_input(
@@ -357,6 +376,14 @@ def main():
         )
     
     with col2:
+        tone = st.selectbox(
+            "Response tone:",
+            options=["Professional", "Technical", "Informative", "Educational", "Direct", "Happy/Enthusiastic", "Reassuring"],
+            index=0,
+            help="Select the tone style for AI responses"
+        )
+    
+    with col3:
         num_responses = st.selectbox(
             "Number of responses:",
             options=[2, 3],
@@ -366,36 +393,56 @@ def main():
     # Generate button
     if st.button("🎯 Generate AI Responses", type="primary", use_container_width=True):
         if query.strip():
-            with st.spinner("Claude is analyzing your query and generating responses..."):
-                responses = generator.generate_ai_responses(query.strip(), num_responses)
+            with st.spinner(f"Claude is analyzing your query and generating {tone.lower()} responses..."):
+                responses = generator.generate_ai_responses(query.strip(), tone, num_responses)
                 
-                st.success(f"Generated {len(responses)} AI response(s)")
+                st.success(f"Generated {len(responses)} {tone} response(s)")
                 
-                # Display responses
+                # Show reasoning for first response
+                if responses and responses[0].get('reasoning'):
+                    with st.expander("🧠 AI Reasoning & Analysis", expanded=False):
+                        st.info(responses[0]['reasoning'])
+                
+                # Display responses in tone-aware cards
                 for i, response in enumerate(responses, 1):
-                    with st.expander(f"🤖 AI Response {i}: {response['category']} - {response['subcategory']}", expanded=True):
+                    response_tone = response.get('tone', tone)
+                    
+                    # Create tone-specific emoji and styling
+                    tone_emojis = {
+                        "Professional": "💼",
+                        "Technical": "🔧", 
+                        "Informative": "📊",
+                        "Educational": "🎓",
+                        "Direct": "⚡",
+                        "Happy/Enthusiastic": "🎉",
+                        "Reassuring": "🤗"
+                    }
+                    
+                    tone_emoji = tone_emojis.get(response_tone, "🤖")
+                    
+                    with st.expander(f"{tone_emoji} {response_tone} Response {i} | {response.get('category', 'AI Response')}", expanded=True):
                         
-                        # Show reasoning for first response
-                        if i == 1 and response.get('reasoning'):
-                            st.markdown("**🧠 AI Reasoning:**")
-                            st.info(response['reasoning'])
-                            st.markdown("---")
+                        # Tone badge
+                        st.markdown(f"**🎨 Tone:** `{response_tone}`")
                         
                         # Social media response
-                        st.markdown("**📱 Social Media Ready Response:**")
+                        st.markdown("**📱 Response:**")
                         response_text = response['social_media_response']
                         st.markdown(f"*{response_text}*")
                         
-                        # Character count
+                        # Enhanced character count with tone-aware limits
                         char_count = len(response_text)
                         if char_count <= 280:
-                            st.success(f"✅ {char_count} characters (Twitter/X friendly)")
-                        elif char_count <= 500:
+                            st.success(f"✅ {char_count} characters (Twitter/X optimized)")
+                        elif char_count <= 400:
                             st.info(f"ℹ️ {char_count} characters (LinkedIn/Facebook friendly)")
+                        elif char_count <= 500:
+                            st.warning(f"⚠️ {char_count} characters (good for {response_tone.lower()} tone, may need trimming for Twitter)")
                         else:
-                            st.warning(f"⚠️ {char_count} characters (may need trimming for some platforms)")
+                            st.error(f"❌ {char_count} characters (too long - consider shortening)")
                         
-                        # Copy button
+                        # Copy section with improved styling
+                        st.markdown("**📋 Copy-Ready Text:**")
                         st.code(response_text, language=None)
                 
         else:
@@ -403,7 +450,8 @@ def main():
     
     # Footer
     st.markdown("---")
-    st.markdown("*AI-enhanced interface using Anthropic Claude for intelligent query analysis and relevant response generation*")
+    st.markdown("*AI-enhanced interface using Anthropic Claude for intelligent query analysis and tone-adaptive response generation*")
+    st.markdown("💡 **New:** Choose from 7 response tones to match your communication style!")
 
 if __name__ == "__main__":
     main()
